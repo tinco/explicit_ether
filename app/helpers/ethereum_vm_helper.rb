@@ -1,0 +1,2 @@
+module EthereumVmHelper
+end

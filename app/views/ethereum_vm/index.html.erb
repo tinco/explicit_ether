@@ -1,0 +1,29 @@
+<section>
+	<h1>EthereumVm</h1>
+	<p>We're going to compile some stuff here.</p>
+</section>
+
+<section>
+	<label for="source">Source code:</label>
+	<textarea id="source"></textarea>
+	<button>Compile</button>
+</section>
+
+<section>
+	<label for="assembly">Assembly:</label>
+	<textarea id="assembly"></textarea>
+	<button>Compile</button>
+</section>
+
+<section>
+	<label for="binary">Binary:</label>
+	<textarea id="binary"></textarea>
+	<button onclick="App.EthereumVM.runBinary()">Run</button>
+</section>
+
+<section>
+	<ul id="vmSteps">
+	</ul>
+	<p>Returned: <span id="result"></span></p>
+	<p>Gas Used: <span id="gasUsed"></span></p>
+</section>
