@@ -3,6 +3,11 @@
 # You can use CoffeeScript in this file: http://coffeescript.org/
 
 App.EthereumVM =
+	parseSource: () ->
+		console.log 'Parsing source...'
+		source = $('#source').val()
+		
+
 	runBinary: () ->
 		console.log 'Running binary...'
 		binary = $('#binary').val()
