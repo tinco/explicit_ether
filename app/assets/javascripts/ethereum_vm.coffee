@@ -6,6 +6,8 @@ App.EthereumVM =
 	parseSource: () ->
 		console.log 'Parsing source...'
 		source = $('#source').val()
+		ast = ExplicitEther.parse(source)
+		console.log('Parsed source..')
 		
 
 	runBinary: () ->
