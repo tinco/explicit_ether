@@ -35,36 +35,30 @@ p.type = t.symbol
 p.preconditions = P.string('pre {}')
 p.postconditions = P.string('post {}')
 p.statement = P.string('return a + b')
-p.body = P.seq(p.statement, t.semicolon, t.space).many()
-p.fn = t.fn.skip(t.space).then(
+p.body = p.statement.skip(t.semicolon).skip(t.space.many()).many()
+p.fn =
 	P.seq(
+		t.fn
+			.skip(t.space),
 		t.symbol, # function name
-		p.arguments, # function arguments
-		t.space,
-		t.arrow,
-		t.space,
-		p.type, # return type
-		t.space,
-		t.lbrace,
-		t.space,
-		p.preconditions, # 
-		t.space,
-		p.postconditions, # 
-		t.space,
-		p.body, #
-		t.rbrace,
-		t.space
-	).then(
-#		(_1, args, _2, _3, _10, type, _4, _5, _11, pre, _6, post, _7, body, _8, _9) -> [
-#			 args, type, pre, post, body
-#		]
-#	)
-)
+		p.arguments
+			.skip(t.space).skip(t.arrow).skip(t.space), # function arguments
+		p.type
+			.skip(t.space).skip(t.lbrace).skip(t.space), # return type
+		p.preconditions
+			.skip(t.space),
+		p.postconditions
+			.skip(t.space),
+		p.body
+			.skip(t.rbrace)
+	)
+p.toplevel = P.alt(p.fn)
+p.root = P.sepBy(p.toplevel, t.space.many())
 
 class Parser
 	constructor: (@source) ->
 	parse: () -> @root.parse(@source)
-	root: p.fn.map () -> debugger
+	root: p.root.map () -> debugger
 
 exports.ExplicitEther =
 	Parser: Parser
