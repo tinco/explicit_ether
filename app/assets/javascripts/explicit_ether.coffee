@@ -10,7 +10,7 @@ t =
 	rbrace: P.string('}').desc('right curly brace')
 	lparen: P.string('(').desc('left parenthesis')
 	rparen: P.string(')').desc('right parenthesis')
-	space: P.alt(P.string(' ').desc('space'), P.string("\n"))
+	space: P.alt(P.string(' ').desc('space'), P.string("\n").desc('end-of-line')).atLeast(1)
 	symbol: P.regexp(/[a-zA-Z_-][a-zA-Z0-9_-]*/).desc('symbol')
 	semicolon: P.string(';')
 	arrow: P.string('->')
@@ -29,39 +29,51 @@ class Parser
 		#     if b > 0 then result > a
 		#     if a > 0 then result > b
 		#   }
-		#   return a + b
+		#   result {
+		#     a + b
+		#   }
 		# }
 
 		p.arguments = P.string('()')
 		p.type = t.symbol
-		p.preconditions = P.string('pre {}')
-		p.postconditions = P.string('post {}')
-		p.statement = P.string('return a + b')
-		p.body = p.statement.skip(t.semicolon).skip(t.space.many()).many()
-		p.fn =
+		p.introducedBlock = (intro, body) ->
 			P.seq(
-				t.fn
-					.skip(t.space),
-				t.symbol, # function name
-				p.arguments
-					.skip(t.space).skip(t.arrow).skip(t.space), # function arguments
-				p.type
-					.skip(t.space).skip(t.lbrace).skip(t.space), # return type
-				p.preconditions
-					.skip(t.space),
-				p.postconditions
-					.skip(t.space),
-				p.body
-					.skip(t.rbrace)
+				intro.skip(t.space).skip(t.lbrace).skip(t.space),
+				P.alt(
+					body.skip(t.space).skip(t.rbrace),
+					P.string('').skip(t.rbrace)
+				)
+			)
+		p.preconditions = p.introducedBlock(P.string('pre'), P.string(''))
+		p.postconditions = p.introducedBlock(P.string('post'), P.string(''))
+		p.expression = P.string('a + b')
+		p.result = p.introducedBlock(P.string('result'), p.expression)
+		p.fn =
+			p.introducedBlock(
+				P.seq(
+					t.fn
+						.skip(t.space),
+					t.symbol, # function name
+					p.arguments
+						.skip(t.space).skip(t.arrow).skip(t.space), # function arguments
+					p.type # return type
+				),
+				P.seq(
+					p.preconditions
+						.skip(t.space),
+					p.postconditions
+						.skip(t.space),
+					p.result
+				)
 			).map (args...) => @generator.function(args...)
-
 		p.toplevel = P.alt(p.fn)
-		p.root = P.sepBy(p.toplevel, t.space.many())
+		p.root = P.sepBy(p.toplevel, t.space)
 
-	parse: (source) -> @parsers.root.parse(source)
+	parse: (source) -> @generator.result(@parsers.root.parse(source))
 
 class LoggingGenerator
 	function: (args...) -> console.log('fn', args)
+	result: (args...) -> console.log('result', args)
 
 exports.ExplicitEther =
 	Parser: Parser
