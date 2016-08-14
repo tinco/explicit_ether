@@ -1,24 +1,39 @@
 exports = window
 
-# dsl style alias
-P = Parsimmon
-
-# Tokens
-t =
-	fn: P.string('fn').desc('function keyword')
-	lbrace: P.string('{').desc('left curly brace')
-	rbrace: P.string('}').desc('right curly brace')
-	lparen: P.string('(').desc('left parenthesis')
-	rparen: P.string(')').desc('right parenthesis')
-	space: P.alt(P.string(' ').desc('space'), P.string("\n").desc('end-of-line')).atLeast(1)
-	symbol: P.regexp(/[a-zA-Z_-][a-zA-Z0-9_-]*/).desc('symbol')
-	semicolon: P.string(';')
-	arrow: P.string('->')
-
 class Parser
 	constructor: (@generator) ->
+		# dsl style alias
+		P = Parsimmon
+
+		# Tokens
+		@tokens = t =
+			fn: P.string('fn').desc('function keyword')
+			lbrace: P.string('{').desc('left curly brace')
+			rbrace: P.string('}').desc('right curly brace')
+			lparen: P.string('(').desc('left parenthesis')
+			rparen: P.string(')').desc('right parenthesis')
+			space: P.alt(P.string(' ').desc('space'), P.string("\n").desc('end-of-line')).atLeast(1)
+			symbol: P.regexp(/[a-zA-Z_-][a-zA-Z0-9_-]*/).desc('symbol')
+			semicolon: P.string(';')
+			arrow: P.string('->')
+
 		# Parsers
 		@parsers = p = {}
+
+		introducedBlock = (intro, body) ->
+			P.seq(
+				intro.skip(t.space).skip(t.lbrace).skip(t.space),
+				P.alt(
+					body.skip(t.space).skip(t.rbrace),
+					P.string('').skip(t.rbrace)
+				)
+			)
+		p.preconditions = introducedBlock(P.string('pre'), P.string(''))
+		p.postconditions = introducedBlock(P.string('post'), P.string(''))
+		p.expression = P.string('a + b')
+		p.result = introducedBlock(P.string('result'), p.expression)
+		p.arguments = P.string('()')
+		p.type = t.symbol
 
 		# fn add(int a, int b) -> int {
 		#   pre {
@@ -33,23 +48,8 @@ class Parser
 		#     a + b
 		#   }
 		# }
-
-		p.arguments = P.string('()')
-		p.type = t.symbol
-		p.introducedBlock = (intro, body) ->
-			P.seq(
-				intro.skip(t.space).skip(t.lbrace).skip(t.space),
-				P.alt(
-					body.skip(t.space).skip(t.rbrace),
-					P.string('').skip(t.rbrace)
-				)
-			)
-		p.preconditions = p.introducedBlock(P.string('pre'), P.string(''))
-		p.postconditions = p.introducedBlock(P.string('post'), P.string(''))
-		p.expression = P.string('a + b')
-		p.result = p.introducedBlock(P.string('result'), p.expression)
 		p.fn =
-			p.introducedBlock(
+			introducedBlock(
 				P.seq(
 					t.fn
 						.skip(t.space),
