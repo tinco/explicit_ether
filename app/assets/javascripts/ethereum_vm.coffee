@@ -8,7 +8,6 @@ App.EthereumVM =
 		source = $('#source').val()
 		ast = ExplicitEther.parse(source)
 		console.log('Parsed source..')
-		
 
 	runBinary: () ->
 		console.log 'Running binary...'
@@ -16,7 +15,7 @@ App.EthereumVM =
 		vm = new EthVm()
 		code = new Buffer(binary, 'hex')
 
-		vm.on 'step', (data) -> 
+		vm.on 'step', (data) ->
 			console.log('Step..')
 			$('#vmSteps').append('<li>' + data.opcode.name + '</li>')
 

@@ -14,4 +14,5 @@
 //= require jquery_ujs
 //= require turbolinks
 //= require parsimmon
+//= require opcodes
 //= require_tree .

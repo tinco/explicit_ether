@@ -20,6 +20,8 @@ class Parser
 		# Parsers
 		@parsers = p = {}
 
+		p.expression = P.string('a + b')
+
 		introducedBlock = (intro, body) ->
 			P.seq(
 				intro.skip(t.space).skip(t.lbrace).skip(t.space),
@@ -30,7 +32,6 @@ class Parser
 			)
 		p.preconditions = introducedBlock(P.string('pre'), P.string(''))
 		p.postconditions = introducedBlock(P.string('post'), P.string(''))
-		p.expression = P.string('a + b')
 		p.result = introducedBlock(P.string('result'), p.expression)
 		p.arguments = P.string('()')
 		p.type = t.symbol
@@ -75,7 +76,58 @@ class LoggingGenerator
 	function: (args...) -> console.log('fn', args)
 	result: (args...) -> console.log('result', args)
 
+exports.EthOpCodesMap = op = {}
+for idx, code of EthOpCodes
+	name = code[0]
+	if not op[name]
+		op[name] =
+			code: parseInt(idx)
+			name: name
+			fee: code[1]
+			in: code[2]
+			out: code[3]
+			dynamic: code[4]
+
+Instructions =
+	push64: (value) -> []
+	push256: (value) -> []
+	jump: (label) -> [ EthOpCodesMap.PUSH.code + (256/8), ,EthOpCodesMap.JUMP.code]
+
+class EthereumGenerator
+	constructor: (@callback)
+		@opcodes = []
+		@stack = []
+		@instruction_counter = 0
+		@random = 1000
+		@labels = {}
+		@emitJumpToMain()
+
+	emitJumpToMain: ->
+
+
+	randomLabel: (context) ->
+		@random += 1
+		label("__anon_" + random, context)
+
+	label: (name, context) ->
+		if @labels[name]
+			throw "Already defined name " + name
+		@labels[name] =
+			position: @instruction_counter
+		name
+
+	function: (descriptor, body) ->
+		[t, name, args, rtype] = descriptor
+		[pre, post, result] = body
+
+		@label(name)
+
+	result: (result) ->
+		if result.status
+			@resolveLabels()
+			result.code = @opcodes
+		@callback(result)
+
 exports.ExplicitEther =
 	Parser: Parser
 	parse: (source) -> new Parser(new LoggingGenerator()).parse(source)
-
