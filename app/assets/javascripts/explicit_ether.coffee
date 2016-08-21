@@ -66,7 +66,7 @@ class Parser
 						.skip(t.space),
 					p.result
 				)
-			).map (args...) => @generator.function(args...)
+			).map (args) => @generator.function(args...)
 		p.toplevel = P.alt(p.fn)
 		p.root = P.sepBy(p.toplevel, t.space)
 
@@ -76,12 +76,33 @@ class LoggingGenerator
 	function: (args...) -> console.log('fn', args)
 	result: (args...) -> console.log('result', args)
 
+hex = (val, bytes) ->
+	val_hex = val.toString(16)
+	val_bytes = val_hex.length * 2
+	if val_bytes > bytes
+		throw "Value too big for buffer"
+	else
+		missing = bytes - val_bytes
+		'0'.repeat(missing / 2).concat(val_hex)
+
+hex32 = (val) ->  hex(val, 4)
+hex64 = (val) -> hex(val, 8)
+hex128 = (val) -> hex(val, 16)
+hex256 = (val) -> hex(val, 32)
+
+exports.utils =
+	hex: hex
+	hex32:  hex32
+	hex64:  hex64
+	hex128: hex128
+	hex256: hex256
+
 exports.EthOpCodesMap = op = {}
 for idx, code of EthOpCodes
 	name = code[0]
 	if not op[name]
 		op[name] =
-			code: parseInt(idx)
+			code: hex32(parseInt(idx))
 			name: name
 			fee: code[1]
 			in: code[2]
@@ -89,22 +110,21 @@ for idx, code of EthOpCodes
 			dynamic: code[4]
 
 Instructions =
-	push64: (value) -> []
-	push256: (value) -> []
-	jump: (label) -> [ EthOpCodesMap.PUSH.code + (256/8), ,EthOpCodesMap.JUMP.code]
+	add: -> [ EthOpCodesMap.ADD ]
+	jump: (label) -> [ EthOpCodesMap.PUSH.code, { ref: label } ,hex32(EthOpCodesMap.JUMP.code)]
+	push32: (val) -> [ EthOpCodesMap.PUSH.code, hex32(val) ]
+	jumpDest:(label) -> [ { dest: label } ]
+
 
 class EthereumGenerator
-	constructor: (@callback)
+	constructor: () ->
 		@opcodes = []
 		@stack = []
-		@instruction_counter = 0
 		@random = 1000
 		@labels = {}
 		@emitJumpToMain()
 
-	emitJumpToMain: ->
-
-
+	# Todo: namespace these somehow so they dont conflict with the handlers
 	randomLabel: (context) ->
 		@random += 1
 		label("__anon_" + random, context)
@@ -112,22 +132,56 @@ class EthereumGenerator
 	label: (name, context) ->
 		if @labels[name]
 			throw "Already defined name " + name
-		@labels[name] =
-			position: @instruction_counter
+		@labels[name] = { name: name  }
 		name
+
+	emit: (code) ->
+		@opcodes = @opcodes.concat(code)
+
+	emitJumpToMain: ->
+		@emit(Instructions.jump('main'))
+
+	pushStack: -> @stack.push([])
+	popStack: -> @stack.pop()
+
+	resolveLabels: () ->
+		# First pass scan all jump destinations
+		count = 0
+		for op,i in @opcodes
+			if op.dest
+				@opcodes[i] = EthOpCodesMap.JUMPDEST.code
+				@labels[op.dest].position = count
+				count += 4
+			else if op.ref
+				count += 4
+			else
+				count += op.length * 2
+
+		# Second pass scan all jumps
+		for op,i in @opcodes
+			if op.ref
+				if @labels[op.ref]
+					@opcodes[i] = hex32(@labels[op.ref].position)
+				else
+					throw "Undefined label: " + op.ref
+
+	# Generator handler functions:
+
+	result: (result) ->
+		if result.status
+			@resolveLabels()
+			result.code = @opcodes.join('')
+		result
 
 	function: (descriptor, body) ->
 		[t, name, args, rtype] = descriptor
 		[pre, post, result] = body
 
 		@label(name)
-
-	result: (result) ->
-		if result.status
-			@resolveLabels()
-			result.code = @opcodes
-		@callback(result)
+		@emit(Instructions.jumpDest(name))
+		# there's a stack that contains the code of the body
 
 exports.ExplicitEther =
 	Parser: Parser
 	parse: (source) -> new Parser(new LoggingGenerator()).parse(source)
+	generate: (source) -> new Parser(new EthereumGenerator()).parse(source)
